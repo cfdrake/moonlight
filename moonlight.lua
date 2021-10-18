@@ -30,7 +30,7 @@ edit = 1 -- which number we're editing
 
 -- on/off for stepped sequence and chimes
 sequence = true
-chimes = true
+chimes = false
 
 
 -- system clock tick
