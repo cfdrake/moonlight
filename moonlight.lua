@@ -1,24 +1,9 @@
--- first light: call to edit
--- 1.0.0 @tehn
+-- moonlight
+--
+-- based on first light: @tehn
 -- l.llllllll.co/firstlight
---
--- see norns study zero!
---
--- E1 set sequence length
--- E2 change edit position
--- E3 change step value
---
--- K2 toggle sequence
--- K3 toggle chimes
-
--- lines starting with "--" are comments, they don't get executed
-
--- find the --[[ 0_0 ]]-- for good places to edit!
-
-engine.name = 'PolyPerc'
 
 g = grid.connect()
-
 
 -- make a table of numbers, along with variables
 -- to track length and current position
@@ -28,10 +13,13 @@ pos = 0
 
 edit = 1 -- which number we're editing
 
--- on/off for stepped sequence and chimes
+-- on/off for stepped sequence
 sequence = true
-chimes = false
-
+edit_mode = false
+freeze = false
+clock_rate = 1
+delay_size = 1
+pre_level = 0.85
 
 -- system clock tick
 -- this function is started by init() and loops forever
@@ -39,7 +27,7 @@ chimes = false
 -- tempo is controlled via the global clock, which can be set in the PARAM menu 
 tick = function()
   while true do
-    clock.sync(1)
+    clock.sync(1/clock_rate)
     if sequence then step() end
   end
 end
@@ -49,36 +37,12 @@ end
 step = function()
   pos = util.wrap(pos+1,1,length)
   --[[ 0_0 ]]--
-  softcut.loop_end(1,numbers[pos]/8)
+  softcut.loop_end(1, numbers[pos] / math.pow(2, delay_size))
 end
-
--- wind blows chimes play
--- this funcion plays all of the notes in a table, in a random order and
--- with random delay in between each. a new pattern is played periodically.
-wind = function()
-  while(true) do
-    light = 15
-    --[[ 0_0 ]]--
-    notes = {400,451,525,555}
-    while chimes and #notes > 0 do
-      if math.random() > 0.2 then
-        engine.hz(table.remove(notes,math.random(#notes)))
-      end
-      clock.sleep(0.1)
-    end
-    clock.sleep(math.random(3,9))
-  end
-end
-
 
 --------------------------------------------------------------------------------
 -- init runs first!
 function init()
-  -- configure the synth --[[ 0_0 ]]--
-  engine.release(1)
-  engine.pw(0.5)
-  engine.cutoff(1000)
-
   -- configure the delay
   audio.level_cut(1.0)
   audio.level_adc_cut(1)
@@ -94,10 +58,10 @@ function init()
   softcut.loop_start(1, 0)
   softcut.loop_end(1, 0.5)
   softcut.loop(1, 1)
-  softcut.fade_time(1, 0.1)
+  -- softcut.fade_time(1, 0.1)
   softcut.rec(1, 1)
   softcut.rec_level(1, 1)
-  softcut.pre_level(1, 0.85) --[[ 0_0 ]]--
+  softcut.pre_level(1, pre_level) --[[ 0_0 ]]--
   softcut.position(1, 0)
   softcut.enable(1, 1)
   softcut.filter_dry(1, 0);
@@ -108,7 +72,6 @@ function init()
   softcut.filter_rq(1, 2.0);
 
   clock.run(tick)       -- start the sequencer
-  clock.run(wind)       -- start the wind
 
   clock.run(function()  -- redraw the screen and grid at 15fps
     while true do
@@ -126,16 +89,29 @@ end
 --------------------------------------------------------------------------------
 -- encoder
 function enc(n, delta)
-  if n==1 then
-    -- E1 change the length of the sequence
-    length = util.clamp(length+delta,1,16)
-    edit = util.clamp(edit,1,length)
-  elseif n==2 then
-    -- E2 change which step to edit
-    edit = util.clamp(edit+delta,1,length)
-  elseif n==3 then
-    -- E3 change the step value
-    numbers[edit] = util.clamp(numbers[edit]+delta,1,8)
+  
+  
+  if edit_mode then
+    if n==1 then
+      -- E1 change the length of the sequence
+      length = util.clamp(length+delta,1,16)
+      edit = util.clamp(edit,1,length)
+    elseif n==2 then
+      -- E2 change which step to edit
+      edit = util.clamp(edit+delta,1,length)
+    elseif n==3 then
+      -- E3 change the step value
+      numbers[edit] = util.clamp(numbers[edit]+delta,1,8)
+    end
+  else
+    if n == 1 then
+      clock_rate = util.clamp(clock_rate + delta, 1, 4)
+    elseif n == 2 then
+      delay_size = util.clamp(delay_size + delta, 1, 4)
+    elseif n == 3 then
+      pre_level = util.clamp(pre_level + delta / 100, 0, 1)
+      softcut.pre_level(1, pre_level)
+    end
   end
 end
 
@@ -143,9 +119,18 @@ end
 --------------------------------------------------------------------------------
 -- key
 function key(n,z)
-  if n==3 and z==1 then
-    -- K3, on key down toggle chimes true/false
-    chimes = not chimes
+  if n == 1 and z == 1 then
+    edit_mode = not edit_mode
+  elseif n==3 and z==1 then
+    freeze = not freeze
+    
+    if freeze then
+      softcut.rec(1, 0)
+      softcut.pre_level(1, 1)
+    else
+      softcut.pre_level(1, pre_level)
+      softcut.rec(1, 1)
+    end
   elseif n==2 and z==1 then
     --[[ 0_0 ]]--
     sequence = not sequence
@@ -159,7 +144,6 @@ function redraw()
   screen.clear()
   screen.line_width(1)
   screen.aa(0)
-  draw_wind()
 
   -- draw bars for numbers
   offset = 64 - length*2
@@ -175,6 +159,50 @@ function redraw()
   screen.move(offset+edit*4,62)
   screen.line_rel(0,2)
   screen.stroke()
+
+  -- screen ind
+  screen.move(0, 10)
+  screen.text(edit_mode and "EDIT" or "PLAY")
+  
+  -- clk
+  screen.move(50, 10)
+  screen.level(3)
+  screen.text("clk")
+  screen.move(64, 10)
+  screen.level(10)
+  screen.text(clock_rate)
+  
+  -- del
+  screen.move(74, 10)
+  screen.level(3)
+  screen.text("sz")
+  screen.move(88, 10)
+  screen.level(10)
+  screen.text(delay_size)
+  
+  -- fb
+  screen.move(98, 10)
+  screen.level(3)
+  screen.text("fb")
+  screen.move(110, 10)
+  screen.level(10)
+  screen.text(math.floor(pre_level * 100))
+  
+  -- seq ind
+  screen.move(0, 30)
+  screen.level(3)
+  screen.text("seq")
+  screen.move(0, 40)
+  screen.level(10)
+  screen.text(sequence and "play" or "pause")
+  
+  -- freeze ind
+  screen.move(0, 50)
+  screen.level(3)
+  screen.text("mode")
+  screen.move(0, 60)
+  screen.level(10)
+  screen.text(freeze and "freeze" or "delay")
 
   screen.update()
 end
@@ -194,33 +222,4 @@ function gridredraw()
     g:led(i,9-numbers[i],i==pos and 15 or 3)
   end
   g:refresh()
-end
-
---------------------------------------------------------------------------------
--- wind (values and draw function)
-x,y = {},{}
-for i=1,16 do
-  x[i] = math.random(256)
-  y[i] = math.random(128)
-end
-vx,vy = math.random(10), math.random(10)
-ax,ay = 0,0
-light = 1
-
-function draw_wind()
-  screen.level(light)
-  if light > 1 then light = light - 1 end
-  if chimes then
-    for i=1,16 do
-      screen.move(x[i],y[i])
-      screen.line_rel(vx,vy)
-      screen.stroke()
-      x[i] = (x[i] + (vx*math.random(9,11)/10)) % 256
-      y[i] = (y[i] + (vy*math.random(9,11)/10)) % 128
-    end
-    vx = math.cos(ax)*10
-    vy = math.cos(ay)*10
-    ax = ax+0.01
-    ay = ay+0.004
-  end
 end
