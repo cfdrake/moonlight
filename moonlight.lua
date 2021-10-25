@@ -121,19 +121,23 @@ end
 function key(n,z)
   if n == 1 and z == 1 then
     edit_mode = not edit_mode
-  elseif n==3 and z==1 then
-    freeze = not freeze
-    
-    if freeze then
-      softcut.rec(1, 0)
-      softcut.pre_level(1, 1)
-    else
-      softcut.pre_level(1, pre_level)
-      softcut.rec(1, 1)
+  end
+  
+  if not edit_mode then
+    if n==3 and z==1 then
+      freeze = not freeze
+      
+      if freeze then
+        softcut.rec(1, 0)
+        softcut.pre_level(1, 1)
+      else
+        softcut.pre_level(1, pre_level)
+        softcut.rec(1, 1)
+      end
+    elseif n==2 and z==1 then
+      --[[ 0_0 ]]--
+      sequence = not sequence
     end
-  elseif n==2 and z==1 then
-    --[[ 0_0 ]]--
-    sequence = not sequence
   end
 end
 
@@ -155,54 +159,71 @@ function redraw()
   end
 
   -- draw edit position
-  screen.level(10)
-  screen.move(offset+edit*4,62)
-  screen.line_rel(0,2)
-  screen.stroke()
+  if edit_mode then
+    screen.level(10)
+    screen.move(offset+edit*4,62)
+    screen.line_rel(0,2)
+    screen.stroke()
+  end
 
   -- screen ind
+  screen.level(5)
   screen.move(0, 10)
   screen.text(edit_mode and "EDIT" or "PLAY")
   
-  -- clk
-  screen.move(50, 10)
-  screen.level(3)
-  screen.text("clk")
-  screen.move(64, 10)
-  screen.level(10)
-  screen.text(clock_rate)
-  
-  -- del
-  screen.move(74, 10)
-  screen.level(3)
-  screen.text("sz")
-  screen.move(88, 10)
-  screen.level(10)
-  screen.text(delay_size)
-  
-  -- fb
-  screen.move(98, 10)
-  screen.level(3)
-  screen.text("fb")
-  screen.move(110, 10)
-  screen.level(10)
-  screen.text(math.floor(pre_level * 100))
-  
-  -- seq ind
-  screen.move(0, 30)
-  screen.level(3)
-  screen.text("seq")
-  screen.move(0, 40)
-  screen.level(10)
-  screen.text(sequence and "play" or "pause")
-  
-  -- freeze ind
-  screen.move(0, 50)
-  screen.level(3)
-  screen.text("mode")
-  screen.move(0, 60)
-  screen.level(10)
-  screen.text(freeze and "freeze" or "delay")
+  if not edit_mode then
+    
+    -- clk
+    screen.move(50, 10)
+    screen.level(3)
+    screen.text("clk")
+    screen.move(64, 10)
+    screen.level(10)
+    screen.text(clock_rate)
+    
+    -- del
+    screen.move(74, 10)
+    screen.level(3)
+    screen.text("sz")
+    screen.move(88, 10)
+    screen.level(10)
+    screen.text(delay_size)
+    
+    -- fb
+    screen.move(98, 10)
+    screen.level(3)
+    screen.text("fb")
+    screen.move(110, 10)
+    screen.level(10)
+    screen.text(math.floor(pre_level * 100))
+    
+    -- seq ind
+    screen.move(0, 30)
+    screen.level(3)
+    screen.text("seq")
+    screen.move(0, 40)
+    screen.level(10)
+    screen.text(sequence and "play" or "pause")
+    
+    -- freeze ind
+    screen.move(0, 50)
+    screen.level(3)
+    screen.text("mode")
+    screen.move(0, 60)
+    screen.level(10)
+    screen.text(freeze and "freeze" or "delay")
+    
+  else
+    
+    -- len
+    screen.move(0, 50)
+    screen.level(3)
+    screen.text("length")
+    screen.move(0, 60)
+    screen.level(10)
+    screen.text(length)
+    
+  end
 
   screen.update()
 end
